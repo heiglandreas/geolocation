@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Geolocation</title>
+    <link rel="stylesheet" href="inc/lib/leaflet/leaflet.css"/>
+    <style type="text/css">
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        #search {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: auto;
+            height: auto;
+        }
+        #search input {
+            width: 200px;
+        }
+        #results {
+            font-family: sans-serif;
+            background-color: rgba(255,255,255,0.8);
+            font-size: 75%;
+        }
+        #results p, #results ul {
+            padding: 10px;
+            margin: 0;
+            list-style-type: none;
+            line-height: 1.2em;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="map" style="height: 100%;"></div>
+    <div id="search">
+        <input type="text" placeholder="Find address..." name="addr" value="" id="addr" size="10" />
+        <button type="button" onclick="addr_search();">Search</button>
+        <div id="results"/>
+    </div>
+    <script type="text/javascript" src="inc/lib/leaflet/leaflet-src.js"></script>
+    <script type="text/javascript" src="inc/lib/leaflet-layerjson.src.js"></script>
+    <script type="text/javascript" src="inc/lib/leaflet-gpx/gpx.js"></script>
+    <script type="text/javascript" src="inc/lib/jquery/jquery.js"></script>
+    <script ype="text/javascript">
+
+        // http://leafletjs.com/examples/quick-start.html
+        // http://wiki.openstreetmap.org/wiki/Tileserver
+        // https://github.com/stefanocudini/leaflet-layerjson
+        // https://github.com/mpetazzoni/leaflet-gpx
+        // http://nominatim.openstreetmap.org
+        // http://derickrethans.nl/leaflet-and-nominatim.html
+        // http://tools.geofabrik.de/mc/
+
+        // Setting a marker
+        var marker = L.marker([50.10532645,8.67111401348106]);
+
+        // Binding a popup to the marker
+        marker.bindPopup("<h1>Sitewards GmbH</h1><p>Veranstaltet heute ein Barcamp ;-)</p>");
+
+        // And adding the marker to a layer-group
+        var pois = L.layerGroup([
+                marker
+        ]);
+
+        // Creating a tile-layer for openstreetmap (mapnik)-Tiles
+        var openstreetmap = L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+            maxZoom: 18
+        })
+        // Creating a tile-layer for opencyclemap-Tiles
+        var opencyclemap = L.tileLayer('http://{s}.tile.opencyclemap.org/cycle/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="http://opencyclemap.org">OpenCycleMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+            maxZoom: 18
+        })
+        // Creating a tile-layer for hike&bike-Tiles
+        var hiking = L.tileLayer('http://a.www.toolserver.org/tiles/hikebike/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="http://opencyclemap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+            maxZoom: 18
+        })
+
+        // Creating a tile-layer for shading-Tiles
+        var shading = L.tileLayer('http://tiles.openpistemap.org/landshaded/{z}/{x}/{y}.png', {
+            opacity: 0.6
+        })
+
+        // Creating a tile-layer for contour-Tiles
+        var contours = L.tileLayer('http://toolserver.org/~cmarqu/opentiles.com/cmarqu/tiles_contours_8/{z}/{x}/{y}.png', {
+          //  opacity: 0.6
+        })
+
+        // Create a point-layer from the joind.in-API
+        var joindin = L.layerJSON({
+            // Get the stuff from this URL
+            url: "http://api.joind.in/v2.1/events?filter=upcoming&verbose=yes&resultsperpage=100",
+            // Add a json-callback to get around the same-origin-policy
+            jsonpParam : 'callback',
+            // Use the "latitude" and "longitude"-properties of the events as lat/lng
+            propertyLoc : ['latitude', 'longitude'],
+            // Use the "name"-Property as name for each point
+            propertyTitle: 'name',
+            // Filter the resultset from joind.in by removing the "icon"-property
+            // of each event and returning only the "events"-property
+            filterData: function(e){
+                for (var i = 0; i< e.events.length; i++) {
+                    delete e.events[i].icon;
+                }
+                return e.events;
+            },
+            // Bind a popup to each event
+            buildPopup : function(e){
+                return '<h1><a href="' + e.humane_website_uri + '">' + e.name + '</a></h1><p>' + e.description + '</p>';
+            }
+        });
+
+        // Create a route-layer from the given GPX-file (GPX-raw-data) and set
+        // some paths for the markers
+        viaClaudiaAugusta = new L.GPX('inc/20120921.gpx', {
+            async: true,
+            marker_options: {
+                startIconUrl: 'inc/lib/leaflet-gpx/pin-icon-start.png',
+                endIconUrl: 'inc/lib/leaflet-gpx/pin-icon-end.png',
+                shadowUrl: 'inc/lib/leaflet-gpx/pin-shadow.png'
+            }
+        });
+
+        // Render the map into the 'map'-element. center it at the given
+        // coordinates, set zoom-level 13 and add layers 'openstreetmap' and 'pois'
+        // as default layers.
+        var map = L.map('map', {
+            center : [50.1051914, 8.67098184512795],
+            zoom   : 13,
+            layers : [openstreetmap, pois]
+        });
+
+        // Add a layer-control-element that gives the option to select from 'Openstreetmap',
+        // 'Opencyclemap' and 'Wanderkarte' as map-layers and 'Schummerung', 'POIs',
+        // 'Via Claudia Augusta' and 'Relief' as optional map-layers.
+        L.control.layers({
+            'OpenStreetMap' : openstreetmap,
+            'OpenCycleMap'  : opencyclemap,
+            'Wanderkarte'   : hiking
+        },{
+            'Schummerung' : shading,
+            'POIs' : pois,
+            'joind.in' : joindin,
+            'Via Claudia Augusta' : viaClaudiaAugusta
+        }).addTo(map);
+
+
+        // Search for the first 5 results of a given address using the nominatim
+        // API of OpenStretMap. More Information in Derek Rethans Blog at
+        // http://derickrethans.nl/leaflet-and-nominatim.html
+        function addr_search() {
+            var inp = document.getElementById("addr");
+
+            $.getJSON('http://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + inp.value, function(data) {
+                var items = [];
+
+                $.each(data, function(key, val) {
+                    items.push(
+                            "<li><a href='#' onclick='chooseAddr(" +
+                            val.lat + ", " + val.lon + ");return false;'>" + val.display_name +
+                            '</a></li>'
+                    );
+                });
+
+                $('#results').empty();
+                if (items.length != 0) {
+                    $('<p>', { html: "Search results:" }).appendTo('#results');
+                    $('<ul/>', {
+                        'class': 'my-new-list',
+                        html: items.join('')
+                    }).appendTo('#results');
+                } else {
+                    $('<p>', { html: "No results found" }).appendTo('#results');
+                }
+            });
+        }
+
+        // Center the map on the given locations.
+        // Also see more at http://derickrethans.nl/leaflet-and-nominatim.html
+        function chooseAddr(lat, lng, type) {
+            var location = new L.LatLng(lat, lng);
+            map.panTo(location);
+
+            if (type == 'city' || type == 'administrative') {
+                map.setZoom(11);
+            } else {
+                map.setZoom(13);
+            }
+        }
+    </script>
+</body>
+</html>
