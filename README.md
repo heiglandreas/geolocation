@@ -3,6 +3,8 @@
 This repository contains a simple demonstration of possibilities you have using
 leafletjs to show a map with different geolocation-data.
 
+You can vie the [Demo here](https://rawgit.com/heiglandreas/geolocation/master/index.html)
+
 The Example has been thrown together using these websites:
 
 - [Leafletjs Quick-Start Guide](http://leafletjs.com/examples/quick-start.html)
